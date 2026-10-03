@@ -1,0 +1,18 @@
+{
+  "name": "J.A.R.V.I.S. Mark VII Tactical HUD",
+  "short_name": "J.A.R.V.I.S.",
+  "description": "Asistente de IA por voz e interfaz holográfica estilo J.A.R.V.I.S.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#030711",
+  "theme_color": "#030711",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "./jarvis-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
