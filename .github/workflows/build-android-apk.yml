@@ -1,0 +1,108 @@
+name: Build Android APK (J.A.R.V.I.S. Beta)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "arena/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build-apk:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java 21 for Android Gradle
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install Web & Capacitor Dependencies
+        run: |
+          npm install
+          npm install @capacitor/core @capacitor/cli @capacitor/android
+
+      - name: Build J.A.R.V.I.S. HUD Web Bundle
+        run: npx vite build --base=./ --outDir=docs
+
+      - name: Generate Android Native Project via Capacitor
+        run: |
+          npx cap add android
+          npx cap sync android
+
+      - name: Configure Native Android Microphone Permissions & WebView Audio Capture
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          if ! grep -q "RECORD_AUDIO" "$MANIFEST"; then
+            sed -i 's|<uses-permission android:name="android.permission.INTERNET" />|<uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />|' "$MANIFEST"
+          fi
+          MAIN_ACT=$(find android/app/src/main/java -name "MainActivity.java" | head -n 1)
+          if [ -n "$MAIN_ACT" ]; then
+            cat > "$MAIN_ACT" << 'EOF'
+          package com.starkindustries.jarviz;
+
+          import android.Manifest;
+          import android.content.pm.PackageManager;
+          import android.os.Bundle;
+          import android.webkit.PermissionRequest;
+          import androidx.core.app.ActivityCompat;
+          import androidx.core.content.ContextCompat;
+          import com.getcapacitor.BridgeActivity;
+          import com.getcapacitor.BridgeWebChromeClient;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                      ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.RECORD_AUDIO, Manifest.permission.MODIFY_AUDIO_SETTINGS}, 101);
+                  }
+                  if (this.bridge != null && this.bridge.getWebView() != null) {
+                      this.bridge.getWebView().setWebChromeClient(new BridgeWebChromeClient(this.bridge) {
+                          @Override
+                          public void onPermissionRequest(final PermissionRequest request) {
+                              request.grant(request.getResources());
+                          }
+                      });
+                  }
+              }
+          }
+          EOF
+          fi
+
+      - name: Compile Android Debug APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Publish APK directly to repository for 1-click download
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk ./jarvis-mark-vii-beta.apk
+          rm -rf android node_modules
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout package.json package-lock.json || true
+          git add jarvis-mark-vii-beta.apk
+          git commit -m "chore: publish compiled Android APK (jarvis-mark-vii-beta.apk) [skip ci]" || true
+          git push origin HEAD:${{ github.ref_name }}
+
+      - name: Upload Downloadable APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: JARVIS-Mark-VII-Android-APK
+          path: jarvis-mark-vii-beta.apk

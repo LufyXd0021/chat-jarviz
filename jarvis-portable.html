@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>J.A.R.V.I.S. // MARK VII HUD (Edición Portable)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --hud-primary: #00f0ff;
+      --hud-rgb: 0, 240, 255;
+    }
+    [data-theme="gold"] { --hud-primary: #fbbf24; --hud-rgb: 251, 191, 36; }
+    [data-theme="emerald"] { --hud-primary: #10b981; --hud-rgb: 16, 185, 129; }
+    [data-theme="crimson"] { --hud-primary: #f43f5e; --hud-rgb: 244, 63, 94; }
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background-color: #030711;
+      color: #e2e8f0;
+      background-image:
+        radial-gradient(circle at 50% 40%, rgba(var(--hud-rgb), 0.14) 0%, rgba(3, 7, 17, 0.95) 65%),
+        linear-gradient(to right, rgba(var(--hud-rgb), 0.05) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(var(--hud-rgb), 0.05) 1px, transparent 1px);
+      background-size: 100% 100%, 36px 36px, 36px 36px;
+    }
+    .font-orbitron { font-family: 'Orbitron', sans-serif; }
+    .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+    .hud-panel {
+      background: rgba(6, 18, 36, 0.76);
+      border: 1px solid rgba(var(--hud-rgb), 0.32);
+      box-shadow: 0 0 24px -6px rgba(var(--hud-rgb), 0.18), inset 0 0 18px -10px rgba(var(--hud-rgb), 0.15);
+      backdrop-filter: blur(12px);
+    }
+    .hud-glow { color: var(--hud-primary); text-shadow: 0 0 10px rgba(var(--hud-rgb), 0.55); }
+    .hud-border { border-color: rgba(var(--hud-rgb), 0.35); }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col select-none" data-theme="cyan">
+  <!-- Header -->
+  <header class="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-950/90 border-b hud-border">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg bg-slate-900 border hud-border flex items-center justify-center font-orbitron font-bold hud-glow">J</div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="font-orbitron text-sm sm:text-base font-extrabold tracking-widest hud-glow">J.A.R.V.I.S. MARK VII</h1>
+          <span class="px-1.5 py-0.5 rounded text-[10px] font-mono-tech bg-slate-900 border hud-border text-slate-300">PORTABLE OS</span>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="setTheme('cyan')" class="px-2 py-1 rounded text-[10px] font-mono-tech bg-slate-900 border border-cyan-500/40 text-cyan-300">ARC</button>
+      <button onclick="setTheme('gold')" class="px-2 py-1 rounded text-[10px] font-mono-tech bg-slate-900 border border-amber-500/40 text-amber-300">GOLD</button>
+      <button onclick="setTheme('emerald')" class="px-2 py-1 rounded text-[10px] font-mono-tech bg-slate-900 border border-emerald-500/40 text-emerald-300">STEALTH</button>
+      <button onclick="setTheme('crimson')" class="px-2 py-1 rounded text-[10px] font-mono-tech bg-slate-900 border border-rose-500/40 text-rose-300">ALERT</button>
+      <button onclick="toggleTts()" id="ttsBtn" class="px-2.5 py-1 rounded text-xs font-mono-tech bg-slate-900 border hud-border hud-glow">🔊 VOZ ON</button>
+      <button onclick="toggleConfig()" class="px-3 py-1 rounded text-xs font-orbitron font-bold bg-cyan-500/20 border hud-border hud-glow">⚙️ API KEY</button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 p-3 overflow-hidden">
+    <!-- Center Core + Chat -->
+    <section class="lg:col-span-8 flex flex-col gap-3 h-full overflow-hidden">
+      <div class="hud-panel rounded-xl p-3 flex flex-col items-center justify-center relative">
+        <canvas id="reactorCanvas" width="220" height="220" class="cursor-pointer" onclick="toggleMic()"></canvas>
+        <div id="coreStatus" class="text-xs font-orbitron tracking-widest hud-glow font-bold mt-1">SISTEMAS EN LÍNEA // CLIC EN EL REACTOR PARA HABLAR</div>
+        <div id="interimText" class="text-xs font-mono-tech text-slate-400 h-4"></div>
+      </div>
+
+      <div class="hud-panel rounded-xl flex-1 flex flex-col overflow-hidden">
+        <div id="chatStream" class="flex-1 overflow-y-auto p-4 space-y-3 select-text text-sm"></div>
+        <form onsubmit="handleSend(event)" class="p-3 bg-slate-950/90 border-t border-slate-800 flex gap-2">
+          <button type="button" id="micBtn" onclick="toggleMic()" class="px-3.5 py-2.5 rounded-xl bg-slate-900 border hud-border hud-glow font-mono-tech text-xs">🎙️ VOZ</button>
+          <input id="chatInput" type="text" placeholder="Escribe o dicta un comando para J.A.R.V.I.S..." class="flex-1 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white font-mono-tech text-xs focus:outline-none" />
+          <button type="submit" class="px-4 py-2.5 rounded-xl bg-cyan-500/20 border hud-border hud-glow font-orbitron text-xs font-bold">ENVIAR</button>
+        </form>
+      </div>
+    </section>
+
+    <!-- Right Config & Quick Actions -->
+    <aside class="hidden lg:flex lg:col-span-4 flex-col gap-3 overflow-y-auto">
+      <div id="configPanel" class="hud-panel rounded-xl p-4 space-y-3">
+        <h2 class="font-orbitron text-xs font-bold hud-glow uppercase">ENLACE NEURONAL DIRECTO (API)</h2>
+        <div>
+          <label class="block text-[11px] font-mono-tech text-slate-400 mb-1">Proveedor de IA</label>
+          <select id="providerSelect" onchange="saveApiSettings()" class="w-full px-3 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs font-mono-tech">
+            <option value="local">Núcleo Táctico Local (Sin API Key)</option>
+            <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+            <option value="openai">OpenAI (gpt-4o-mini)</option>
+            <option value="groq">Groq (llama-3.3-70b-versatile)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[11px] font-mono-tech text-slate-400 mb-1">API Key</label>
+          <input id="apiKeyInput" type="password" onchange="saveApiSettings()" placeholder="Pega tu API Key aquí..." class="w-full px-3 py-1.5 rounded bg-slate-900 border border-slate-700 text-xs font-mono-tech" />
+        </div>
+      </div>
+
+      <div class="hud-panel rounded-xl p-4 space-y-2 flex-1">
+        <h2 class="font-orbitron text-xs font-bold hud-glow uppercase">PROTOCOLOS RÁPIDOS</h2>
+        <div class="space-y-1.5 text-xs font-mono-tech">
+          <button onclick="quickCmd('Ejecuta un diagnóstico completo del sistema')" class="w-full text-left p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800">⚡ Diagnóstico del Sistema</button>
+          <button onclick="quickCmd('Activa el protocolo de alerta roja')" class="w-full text-left p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800">🚨 Protocolo Alerta Roja</button>
+          <button onclick="quickCmd('Restaura el HUD al modo normal')" class="w-full text-left p-2 rounded bg-slate-900/90 hover:bg-slate-800 border border-slate-800">💠 Restaurar HUD Cyan</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    let ttsEnabled = true;
+    let isListening = false;
+    let isSpeaking = false;
+    let themeColor = '#00f0ff';
+    let recognition = null;
+
+    function setTheme(t) {
+      document.body.setAttribute('data-theme', t);
+      const map = { cyan: '#00f0ff', gold: '#fbbf24', emerald: '#10b981', crimson: '#f43f5e' };
+      themeColor = map[t] || '#00f0ff';
+    }
+
+    function toggleTts() {
+      ttsEnabled = !ttsEnabled;
+      document.getElementById('ttsBtn').textContent = ttsEnabled ? '🔊 VOZ ON' : '🔇 VOZ OFF';
+      if (!ttsEnabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    function toggleConfig() {
+      document.getElementById('apiKeyInput').focus();
+    }
+
+    function saveApiSettings() {
+      localStorage.setItem('jarvis_portable_provider', document.getElementById('providerSelect').value);
+      localStorage.setItem('jarvis_portable_key', document.getElementById('apiKeyInput').value);
+    }
+
+    function appendMsg(role, text) {
+      const box = document.getElementById('chatStream');
+      const wrap = document.createElement('div');
+      wrap.className = `flex flex-col ${role === 'user' ? 'items-end' : 'items-start'}`;
+      wrap.innerHTML = `
+        <div class="text-[10px] font-mono-tech text-slate-400 mb-1">${role === 'user' ? 'COMANDANTE' : 'J.A.R.V.I.S.'}</div>
+        <div class="max-w-[85%] rounded-xl px-4 py-2.5 border ${role === 'user' ? 'bg-cyan-500/15 hud-border' : 'bg-slate-950/90 border-slate-800'} whitespace-pre-wrap">${text}</div>
+      `;
+      box.appendChild(wrap);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function speak(text) {
+      if (!ttsEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text.replace(/[#*`]/g, ''));
+      u.lang = 'es-CO';
+      u.onstart = () => { isSpeaking = true; };
+      u.onend = () => { isSpeaking = false; };
+      window.speechSynthesis.speak(u);
+    }
+
+    async function processCommand(text) {
+      appendMsg('user', text);
+      const provider = document.getElementById('providerSelect').value;
+      const apiKey = document.getElementById('apiKeyInput').value.trim();
+      const lower = text.toLowerCase();
+
+      if (lower.includes('alerta roja')) setTheme('crimson');
+      if (lower.includes('modo normal') || lower.includes('cyan')) setTheme('cyan');
+
+      if (provider === 'gemini' && apiKey) {
+        try {
+          const models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-1.5-flash'];
+          let reply = null;
+          let lastError = '';
+          for (const m of models) {
+            const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: '[Eres J.A.R.V.I.S., asistente táctico de Tony Stark. Responde en español con estilo elegante y conciso.]\n\n' + text }] }]
+              })
+            });
+            const d = await r.json();
+            if (r.ok && d?.candidates?.[0]?.content?.parts?.[0]?.text) {
+              reply = d.candidates[0].content.parts[0].text;
+              break;
+            } else {
+              lastError = d?.error?.message || ('HTTP ' + r.status);
+            }
+          }
+          if (!reply) throw new Error(lastError || 'No se pudo conectar con Gemini');
+          appendMsg('assistant', reply);
+          speak(reply);
+          return;
+        } catch (e) {
+          appendMsg('assistant', 'Error al conectar con Gemini: ' + e.message);
+          return;
+        }
+      }
+
+      if ((provider === 'openai' || provider === 'groq') && apiKey) {
+        const url = provider === 'groq' ? 'https://api.groq.com/openai/v1/chat/completions' : 'https://api.openai.com/v1/chat/completions';
+        const model = provider === 'groq' ? 'llama-3.3-70b-versatile' : 'gpt-4o-mini';
+        try {
+          const r = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model,
+              messages: [
+                { role: 'system', content: 'Eres J.A.R.V.I.S., el asistente táctico de Tony Stark. Responde en español.' },
+                { role: 'user', content: text }
+              ]
+            })
+          });
+          const d = await r.json();
+          const reply = d?.choices?.[0]?.message?.content || 'Respuesta vacía.';
+          appendMsg('assistant', reply);
+          speak(reply);
+          return;
+        } catch (e) {
+          appendMsg('assistant', 'Error de conexión API: ' + e.message);
+          return;
+        }
+      }
+
+      const reply = lower.includes('diagnóstico') || lower.includes('diagnostico')
+        ? 'Diagnóstico completado, señor. Reactor Arc operando a 3.48 GJ/s. Todos los sistemas de la edición portable están al 100%.'
+        : `A su servicio, señor. He recibido su comando: "${text}". Para respuestas generativas completas en esta edición portable, seleccione Gemini, OpenAI o Groq a la derecha e ingrese su API Key.`;
+      appendMsg('assistant', reply);
+      speak(reply);
+    }
+
+    function handleSend(e) {
+      e.preventDefault();
+      const input = document.getElementById('chatInput');
+      if (!input.value.trim()) return;
+      processCommand(input.value.trim());
+      input.value = '';
+    }
+
+    function quickCmd(c) { processCommand(c); }
+
+    function toggleMic() {
+      const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) { alert('Usa Google Chrome o Edge para reconocimiento de voz.'); return; }
+      if (isListening && recognition) { recognition.stop(); isListening = false; return; }
+      recognition = new SR();
+      recognition.lang = 'es-CO';
+      recognition.interimResults = true;
+      recognition.onstart = () => {
+        isListening = true;
+        document.getElementById('coreStatus').textContent = 'ESCUCHANDO COMANDO DE VOZ...';
+      };
+      recognition.onresult = (ev) => {
+        let finalT = '', interimT = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) finalT += ev.results[i][0].transcript;
+          else interimT += ev.results[i][0].transcript;
+        }
+        document.getElementById('interimText').textContent = interimT;
+        if (finalT.trim()) {
+          document.getElementById('interimText').textContent = '';
+          processCommand(finalT.trim());
+        }
+      };
+      recognition.onend = () => {
+        isListening = false;
+        document.getElementById('coreStatus').textContent = 'SISTEMAS EN LÍNEA // CLIC EN EL REACTOR PARA HABLAR';
+      };
+      recognition.start();
+    }
+
+    // 60FPS Arc Reactor Canvas Loop
+    const canvas = document.getElementById('reactorCanvas');
+    const ctx = canvas.getContext('2d');
+    let t = 0;
+    function drawReactor() {
+      t += 1;
+      ctx.clearRect(0, 0, 220, 220);
+      const cx = 110, cy = 110;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(t * 0.01);
+      ctx.strokeStyle = themeColor;
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 6; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 82, i * 1.04, i * 1.04 + 0.65);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      for (let i = 0; i < 36; i++) {
+        const ang = (i * Math.PI * 2) / 36;
+        const amp = (isListening || isSpeaking) ? Math.abs(Math.sin(t * 0.15 + i)) * 22 : 6 + Math.sin(t * 0.05 + i) * 3;
+        ctx.strokeStyle = themeColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(ang) * 48, Math.sin(ang) * 48);
+        ctx.lineTo(Math.cos(ang) * (48 + amp), Math.sin(ang) * (48 + amp));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      ctx.beginPath();
+      ctx.arc(cx, cy, 24 + Math.sin(t * 0.08) * 3, 0, Math.PI * 2);
+      ctx.fillStyle = themeColor;
+      ctx.shadowColor = themeColor;
+      ctx.shadowBlur = 20;
+      ctx.fill();
+      requestAnimationFrame(drawReactor);
+    }
+    drawReactor();
+    appendMsg('assistant', 'J.A.R.V.I.S. Mark VII Edición Portable en línea, señor. Haga clic en el Reactor Arc para hablar o escriba su comando.');
+  </script>
+</body>
+</html>

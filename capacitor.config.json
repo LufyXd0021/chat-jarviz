@@ -1,0 +1,9 @@
+{
+  "appId": "com.starkindustries.jarviz",
+  "appName": "J.A.R.V.I.S. Mark VII",
+  "webDir": "docs",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}
